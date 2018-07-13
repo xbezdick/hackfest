@@ -1,0 +1,15 @@
+- name: Run undercloud upgrade
+  shell: |
+          sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
+          sudo systemctl stop openstack-* neutron-* httpd && \
+          sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
+          openstack undercloud upgrade
+- name: Reboot
+  shell: sudo reboot
+- pause: seconds=30
+- local_action: shell ansible -u {{ ansible_user_id }} -m ping {{ inventory_hostname }}
+  register: result
+  until: result.rc == 0
+  retries: 30
+  delay: 10
+- shell: uptime

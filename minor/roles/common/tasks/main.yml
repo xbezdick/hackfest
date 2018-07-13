@@ -1,0 +1,10 @@
+---
+- name: Set up OSP10 and prepare for update
+  tags: prepare
+  shell: |
+          sudo yum -y  localinstall -y http://rhos-release.virt.bos.redhat.com/repos/rhos-release/rhos-release-latest.noarch.rpm && \
+          sudo rhos-release 10 rhel-7.5 && \
+          sudo yum install -y yum-plugin-versionlock && \
+          sudo yum versionlock add systemd systemd-libs libgudev1 systemd-sysv rsyslog && \
+          sudo yum update --downloadonly
+

@@ -1,0 +1,13 @@
+---
+- name: Prepare for update all nodes
+  hosts: all
+  roles:
+          - {role: common, tags ["prepare"]}
+- name: Minor update Undercloud
+  hosts: undercloud
+  roles:
+          - undercloud-update
+- name: Minor update Overcloud
+  hosts undercloud
+  roles:
+          - overcloud-update

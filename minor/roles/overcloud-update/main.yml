@@ -1,0 +1,9 @@
+---
+- name: Create overcloud_update.sh
+  shell: |
+          cp overcloud_deploy.sh overcloud_update.sh && \
+          sed -i -e 's/deploy \\/deploy --update-plan-only \\/' overcloud_update.sh
+- name: Create overcloud plan
+  shell: sh overcloud_update.sh 2>&1 | tee overcloud_update.log
+- name: Run overcloud update
+  shell: yes '' | openstack overcloud update stack -i overcloud
