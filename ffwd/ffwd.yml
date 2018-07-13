@@ -1,0 +1,11 @@
+---
+- name: Undercloud upgrade
+  gather_facts: false
+  hosts: undercloud
+  roles:
+          - undercloud-update
+- name: Prepair undercloud
+  gather_facts: false
+  hosts: undercloud
+  roles:
+          - ffwd-prepare

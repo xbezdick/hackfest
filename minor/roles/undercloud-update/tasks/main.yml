@@ -1,15 +1,26 @@
-- name: Run undercloud upgrade
-  shell: |
-          sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
-          sudo systemctl stop openstack-* neutron-* httpd && \
-          sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
-          openstack undercloud upgrade
-- name: Reboot
-  shell: sudo reboot
-- pause: seconds=30
-- local_action: shell ansible -u {{ ansible_user_id }} -m ping {{ inventory_hostname }}
-  register: result
-  until: result.rc == 0
-  retries: 30
-  delay: 10
-- shell: uptime
+- name: Check update
+  shell: yum check-update
+  register: update
+  ignore_errors: true
+- when: update is failed
+  block:
+    - name: Update kernel package
+      shell: sudo yum -y update kernel
+    - name: Check latest kernel
+      shell: rpm -q --last kernel | head -n 1 | cut -d' ' -f1 |  grep $(uname -r)
+      register: reboot
+      ignore_errors: true
+    - name: Reboot UC 1
+      include: reboot.yml
+      when: reboot is failed
+    - name: Run undercloud upgrade
+      shell: |
+              sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
+              sudo systemctl stop openstack-* neutron-* httpd && \
+              sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
+              openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+    - name: Reboot UC 2
+      include: reboot.yml
+    - name: Sleep for 5 minutes as UC services need to boot up
+      pause:
+              minutes: 5

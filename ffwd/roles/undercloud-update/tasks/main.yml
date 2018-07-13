@@ -1,0 +1,44 @@
+- name: Enable OSP11 repo
+  shell: |
+          sudo rhos-release -x
+          sudo rhos-release 11
+- name: Check OSP11 update
+  shell: sudo yum check-update
+  ignore_errors: true
+  register: update
+- name: Run undercloud upgrade to OSP11
+  shell: |
+          sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
+          sudo systemctl stop openstack-* neutron-* httpd && \
+          sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
+          openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+  when: update is failed
+- name: Enable OSP12 repo
+  shell: |
+          sudo rhos-release -x
+          sudo rhos-release 12
+- name: Check OSP12 update
+  shell: sudo yum check-update
+  ignore_errors: true
+  register: update
+- name: Run undercloud upgrade to OSP12
+  shell: |
+          sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
+          sudo systemctl stop openstack-* neutron-* httpd && \
+          sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
+          openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+  when: update is failed
+- name: Enable OSP13 repo
+  shell: |
+          sudo rhos-release -x
+          sudo rhos-release 13
+- name: Check OSP13 update
+  shell: sudo yum check-update
+  ignore_errors: true
+  register: update
+- name: Run undercloud upgrade to OSP13
+  shell: |
+          sudo yum-config-manager --setopt=exclude= --save && \
+          sudo yum update -y python-tripleoclient && \
+          openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+  when: update is failed

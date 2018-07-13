@@ -1,13 +1,26 @@
 ---
 - name: Prepare for update all nodes
-  hosts: all
+  hosts: openstack_nodes, undercloud
   roles:
-          - {role: common, tags ["prepare"]}
+          - prep
 - name: Minor update Undercloud
+  gather_facts: false
   hosts: undercloud
   roles:
           - undercloud-update
 - name: Minor update Overcloud
-  hosts undercloud
+  gather_facts: false
+  hosts: undercloud
   roles:
           - overcloud-update
+- name: Reboot overcloud and finish all nodes
+  hosts: overcloud_nodes:!unused
+  gather_facts: false
+  serial: 1
+  roles:
+          - overcloud-reboot
+- name: Finish update on all nodes
+  hosts: openstack_nodes, undercloud
+  strategy: free
+  roles:
+          - post

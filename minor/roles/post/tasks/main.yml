@@ -1,0 +1,6 @@
+---
+- name: Cleanup versionlock and update systemd
+  shell: |
+          sudo yum versionlock list | grep systemd && \
+          sudo yum versionlock delete systemd systemd-libs libgudev1 systemd-sysv rsyslog && \
+          sudo yum -y update
