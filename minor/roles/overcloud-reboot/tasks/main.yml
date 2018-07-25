@@ -77,10 +77,15 @@
       when:
           - pcs_active|failed
           - pcmk_remote|failed
-    
+
+    - name: load kexec kernel
+      become: true
+      shell: |
+          KERNEL=$( rpm -q --last kernel | head -n 1 | cut -d' ' -f1 | sed  's/kernel//') ; kexec -l /boot/vmlinuz${KERNEL} --initrd /boot/initramfs${KERNEL}.img  --reuse-cmdline  --debug
+
     - name: reboot the node
       become: true
-      shell: "sleep 5 && shutdown -r now"
+      shell: "sleep 5 && systemctl kexec"
       async: 1
       poll: 0
       ignore_errors: true
