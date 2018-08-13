@@ -6,14 +6,24 @@
   shell: |
           sudo yum -y install crudini
           sudo crudini --set /etc/containers/registries.conf registries.insecure registries "['docker-registry.engineering.redhat.com']"
+- name: Get local_ip
+  shell: |
+          crudini --get undercloud.conf DEFAULT local_ip | cut -d '/' -f1
+  register: local_ip
 - name: Openstack overcloud container image prepare for local registry
   shell: |
-          openstack overcloud container image prepare     --namespace=docker-registry.engineering.redhat.com/rhosp13      --prefix=openstack-  --output-images-file=/home/stack/local-docker-images.yaml   -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml  --set ceph_namespace=registry.access.redhat.com/rhceph --set ceph_image=rhceph-3-rhel7 --tag=2018-07-13.1 --push-destination 192.168.24.1:8787    --output-env-file ~/docker_registry.yaml  --set ceph_tag=latest
-          #- name: Pull the images
-          #  shell: |
-          #sudo openstack overcloud container image upload \
-          #  --config-file  /home/stack/local-docker-images.yaml \
-          #  --verbose
+          openstack overcloud container image prepare     --namespace=docker-registry.engineering.redhat.com/rhosp13      --prefix=openstack-  --output-images-file=/home/stack/local-docker-images.yaml   -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml  --set ceph_namespace=registry.access.redhat.com/rhceph --set ceph_image=rhceph-3-rhel7 --tag=2018-07-13.1 --push-destination {{ local_ip.stdout }}:8787    --output-env-file ~/docker_registry.yaml  --set ceph_tag=latest
+- name: Check if catalog present
+  ignore_errors: true
+  shell: |
+          curl {{ local_ip.stdout }}:8787/v2/_catalog | grep keystone
+  register: catalog_present
+- name: Pull the images
+  when: catalog_present is failed
+  shell: |
+          sudo openstack overcloud container image upload \
+            --config-file  /home/stack/local-docker-images.yaml \
+            --verbose
 - name: Prepare FFU repos env file
   copy:
     dest: /home/stack/ffu_repos.yaml
@@ -52,7 +62,18 @@
                   # Change according to location: qeos,brq,tlv
                   #MIRROR=brq
                   #sed -i s/MIRROR=default_repo_mirror/MIRROR=$MIRROR/ $HOME/ffu_repos.yaml
+- name: Is UC SSL
+  ignore_errors: true
+  shell: |
+          grep https stackrc
+  register: undercloud_ssl
+- name: Get cert location
+  when: undercloud_ssl is succeeded
+  shell: |
+          crudini --get undercloud.conf DEFAULT undercloud_service_certificate
+  register: undercloud_ssl_path
 - name: Prepare Undercloud CA ansible
+  when: undercloud_ssl is succeeded
   copy:
     dest: /home/stack/undercloud-ca.yaml
     content: |
@@ -64,7 +85,7 @@
                 tasks:
                   - name: Copy undercloud CA
                     copy:
-                      src: /etc/pki/ca-trust/source/anchors/undercloud-cacert.pem
+                      src: "{{ undercloud_ssl_path.stdout }}"
                       dest: /etc/pki/ca-trust/source/anchors/
                   - name: Update trust
                     command: "update-ca-trust extract"
@@ -91,10 +112,12 @@
                     shell:
                             sudo systemctl start os-collect-config
 - name: Prepare list of OC nodes
+  when: undercloud_ssl is succeeded
   shell: |
           source ~/stackrc
           openstack server list -c Networks -f value | cut -d"=" -f2 >  overcloud_hosts
 - name: Prepare OC access to UC public api
+  when: undercloud_ssl is succeeded
   shell: ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i overcloud_hosts undercloud-ca.yaml
 - name: Overcloud - Pre Upgrade Convert puppet-ceph to ceph-ansible parameters
   shell: |
@@ -109,8 +132,9 @@
           echo '-e /home/stack/docker_registry.yaml \
           -e /home/stack/ffu_repos.yaml ' >> overcloud_ffwd.sh
 - name: Fix network config
+  ignore_errors: true
   shell: |
-          grep yaml `grep network-environment overcloud_ffwd.sh | awk '{print $2}'`  | grep -v '/usr/share'  | awk '{print $2}' | xargs /usr/share/openstack-tripleo-heat-templates/tools/yaml-nic-config-2-script.py     --script-dir /usr/share/openstack-tripleo-heat-templates/network/scripts
+           grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' | awk '{print $3}' | xargs /usr/share/openstack-tripleo-heat-templates/tools/yaml-nic-config-2-script.py --yes --script-dir /usr/share/openstack-tripleo-heat-templates/network/scripts
 - name: Harakiri with role data
   shell: |
           ROLES_DATA=$(grep -- -r overcloud_ffwd.sh | awk '{print $2}')
@@ -120,16 +144,16 @@
           jq 'del(.[] | .ServicesDefault[] | select (. =="OS::TripleO::Services::ManilaBackendGeneric"))' |\
           jq 'del(.[] | .ServicesDefault[] | select (. =="OS::TripleO::Services::FluentdClient"))' |\
           jq 'del(.[] | .ServicesDefault[] | select (. =="OS::TripleO::Services::Core"))' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::MySQLClient"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::CertmongerUser"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Docker"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::ContainersLogrotateCrond"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Tuned"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::AuditD"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Collectd"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Rhsm"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::RsyslogSidecar"]) | unique)' |\
-          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Securetty"]) | unique)' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::MySQLClient"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::CertmongerUser"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Docker"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::ContainersLogrotateCrond"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Tuned"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::AuditD"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Collectd"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Rhsm"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::RsyslogSidecar"] | unique))' |\
+          jq 'map(.ServicesDefault |= (. += ["OS::TripleO::Services::Securetty"] | unique))' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaApi"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::NovaPlacement"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaCompute"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::NovaMigrationTarget"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::AodhApi"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::PankoApi"] | unique) else . end)' |\
@@ -142,37 +166,30 @@
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephMds"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephRbdMirror"] | unique) else . end)' |\
           python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
-#- name: Run FFWD prepare command
-#  shell: |
-#          source ~/stackrc
-#          time sh overcloud_ffwd.sh 2>&1 | tee overcloud_ffwd_prepare.log
-#- name: Run FFWD run command
-#  shell: |
-#          source ~/stackrc
-#          time openstack overcloud ffwd-upgrade run --yes 2>&1 | tee overcloud_ffwd_run.log
-## TODO: FIXME: This is stupid and should not be hardcoded, instead pulled out of somewhere but oh well ^^ that is also kinda stupid
-#- name: Run Upgrade on Controllers
-#  shell: |
-#          source ~/stackrc
-#          time openstack overcloud upgrade run --roles Controller --skip-tags validation 2>&1 | tee overcloud_upgrade_controllers.log
-#- name: Run Upgrade on Computes
-#  shell: |
-#          source ~/stackrc
-#          # hey what about canary?
-#          time openstack overcloud upgrade run --roles Compute  --skip-tags validation 2>&1 | tee overcloud_upgrade_computes.log
-#- name: Run Upgrade on CephStorage
-#  shell: |
-#          source ~/stackrc
-#          time openstack overcloud upgrade run --roles CephStorage  --skip-tags validation 2>&1 | tee overcloud_upgrade_ceph.log
-#- name: Prepare Ceph Upgrade
-#  shell: |
-#          cp overcloud_deploy.sh overcloud_ceph.sh
-#          sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
-#          sed -i -e '/log-file/d' overcloud_ceph.sh
-#          sed -i -e '/^$/d' overcloud_ceph.sh
-#          echo '-e /home/stack/docker_registry.yaml \
-#          -e /home/stack/ffu_repos.yaml \
-#          -e FIXED CEPH
-#          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
-#          --ceph-ansible-playbook "/usr/share/ceph-ansible/infrastructure-playbooks/switch-from-non-containerized-to-containerized-ceph-daemons.yml,/usr/share/ceph-ansible/infrastructure-playbooks/rolling_update.yml"' >> overcloud_ffwd.sh
-#
+- name: Run FFWD prepare command
+  shell: |
+          source ~/stackrc
+          time sh overcloud_ffwd.sh 2>&1 | tee overcloud_ffwd_prepare.log
+- name: Run FFWD run command
+  shell: |
+          source ~/stackrc
+          time openstack overcloud ffwd-upgrade run --yes 2>&1 | tee overcloud_ffwd_run.log
+# TODO: FIXME: This is stupid and should not be hardcoded, instead pulled out of somewhere but oh well ^^ that is also kinda stupid
+- name: Run Upgrade on Controllers
+  shell: |
+          source ~/stackrc
+          cat $(grep -- -r overcloud_ffwd.sh | awk '{print $2}') |  grep -- '- name' | awk '{print $3}' | while read role; do
+            time openstack overcloud upgrade run --roles ${role} --skip-tags validation 2>&1 | tee overcloud_upgrade_${role}.log
+          done
+- name: Prepare Ceph Upgrade
+  shell: |
+          cp overcloud_deploy.sh overcloud_ceph.sh
+          sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
+          sed -i -e '/log-file/d' overcloud_ceph.sh
+          sed -i -e '/^$/d' overcloud_ceph.sh
+          echo '-e /home/stack/docker_registry.yaml \
+          -e /home/stack/ffu_repos.yaml \
+          -e FIXED CEPH
+          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
+          --ceph-ansible-playbook "/usr/share/ceph-ansible/infrastructure-playbooks/switch-from-non-containerized-to-containerized-ceph-daemons.yml,/usr/share/ceph-ansible/infrastructure-playbooks/rolling_update.yml"' >> overcloud_ffwd.sh
+

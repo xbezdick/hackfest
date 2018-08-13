@@ -4,3 +4,12 @@
           sudo yum versionlock list | grep systemd && \
           sudo yum versionlock delete systemd systemd-libs libgudev1 systemd-sysv rsyslog && \
           sudo yum -y update
+- name: Hackish checkup on systemd
+  shell: |
+          sudo yum -y downgrade systemd* libgudev1* && \
+          sudo systemctl daemon-reexec && \
+          sudo systemctl daemon-reload && \
+          sudo yum -y update
+- name: Verify systemd
+  shell: |
+          sysctl -a
