@@ -6,6 +6,7 @@
   shell: |
           sudo yum -y install crudini
           sudo crudini --set /etc/containers/registries.conf registries.insecure registries "['docker-registry.engineering.redhat.com']"
+          sudo systemctl restart docker
 - name: Get local_ip
   shell: |
           crudini --get undercloud.conf DEFAULT local_ip | cut -d '/' -f1

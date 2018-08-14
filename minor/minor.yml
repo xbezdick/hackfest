@@ -13,10 +13,20 @@
   hosts: undercloud
   roles:
           - overcloud-update
-- name: Reboot overcloud and finish all nodes
-  hosts: overcloud_nodes:!unused
+- name: Reboot overcloud computes and finish all nodes
+  hosts: compute:!unused
   gather_facts: false
   serial: 1
+  roles:
+          - overcloud-reboot
+
+- name: Magical arithmetics with compute nodes
+  vars:
+    parallel_compute_reboots: "{{ ((groups['computes'] | length)  * 0.2) | round(0,'ceil') | int }}"
+- name: Reboot overcloud and finish all nodes
+  hosts: overcloud_nodes:!unused:!compute
+  gather_facts: false
+  serial: parallel_compute_reboots
   roles:
           - overcloud-reboot
 - name: Finish update on all nodes
