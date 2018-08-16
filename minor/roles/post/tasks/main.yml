@@ -12,4 +12,4 @@
           sudo yum -y update
 - name: Verify systemd
   shell: |
-          sysctl -a
+          sudo sysctl -a
