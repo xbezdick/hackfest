@@ -143,6 +143,7 @@
     # pacemaker managed services
     - name: start pcs cluster on a node
       become: true
+      delay: 5
       command: pcs cluster start --wait=300
       when:
           - pcs_active|failed
@@ -154,7 +155,7 @@
       register: pcs_status
       until: "'{{ inventory_hostname }}' in pcs_status.stdout"
       retries: 6
-      delay: 5
+      delay: 10
       when:
           - pcs_active|failed
           - pcmk_remote|failed

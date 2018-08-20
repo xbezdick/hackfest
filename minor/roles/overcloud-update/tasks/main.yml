@@ -11,3 +11,7 @@
   shell: |
           source ~/stackrc
           yes '' | openstack overcloud update stack -i overcloud 2>&1 | tee -a overcloud_update.log
+- name: Check successfull update
+  shell: |
+          source ~/stackrc
+          openstack stack list -c 'Stack Status' -f value | grep COMPLETE
