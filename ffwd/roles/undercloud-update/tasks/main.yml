@@ -13,6 +13,9 @@
           sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
           openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
   when: update is failed
+- name: Reboot UC OSP11
+  include: reboot.yml
+  when: update is failed
 - name: Enable OSP12 repo
   shell: |
           sudo rhos-release -x
@@ -28,6 +31,9 @@
           sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
           openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
   when: update is failed
+- name: Reboot UC OSP12
+  include: reboot.yml
+  when: update is failed
 - name: Enable OSP13 repo
   shell: |
           sudo rhos-release -x
@@ -41,4 +47,7 @@
           sudo yum-config-manager --setopt=exclude= --save && \
           sudo yum update -y python-tripleoclient && \
           openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+  when: update is failed
+- name: Reboot UC OSP13
+  include: reboot.yml
   when: update is failed
