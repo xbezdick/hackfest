@@ -175,11 +175,10 @@
   shell: |
           source ~/stackrc
           time openstack overcloud ffwd-upgrade run --yes 2>&1 | tee overcloud_ffwd_run.log
-# TODO: FIXME: This is stupid and should not be hardcoded, instead pulled out of somewhere but oh well ^^ that is also kinda stupid
 - name: Run Upgrade on Controllers
   shell: |
           source ~/stackrc
-          cat $(grep -- -r overcloud_ffwd.sh | awk '{print $2}') |  grep -- '- name' | awk '{print $3}' | while read role; do
+          cat $(grep -- -r overcloud_ffwd.sh | awk '{print $2}') |  grep -- ' name:' |  cut -d':' -f2 | while read role; do
             time openstack overcloud upgrade run --roles ${role} --skip-tags validation 2>&1 | tee overcloud_upgrade_${role}.log
           done
 - name: Prepare Ceph Upgrade
