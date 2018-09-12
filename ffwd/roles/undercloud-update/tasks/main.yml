@@ -11,8 +11,11 @@
           sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
           sudo systemctl stop openstack-* neutron-* httpd && \
           sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
-          openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+          source ~/stackrec && \
+          openstack undercloud upgrade
   when: update is failed
+- name: Check OSP11 update
+  shell: sudo yum check-update
 - name: Reboot UC OSP11
   include: reboot.yml
   when: update is failed
@@ -29,8 +32,11 @@
           sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
           sudo systemctl stop openstack-* neutron-* httpd && \
           sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
-          openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+          source ~/stackrc && \
+          openstack undercloud upgrade
   when: update is failed
+- name: Check OSP12 update
+  shell: sudo yum check-update
 - name: Reboot UC OSP12
   include: reboot.yml
   when: update is failed
@@ -45,9 +51,12 @@
 - name: Run undercloud upgrade to OSP13
   shell: |
           sudo yum-config-manager --setopt=exclude= --save && \
-          sudo yum update -y python-tripleoclient && \
-          openstack undercloud upgrade 2>&1 | tee undercloud_upgrade.log
+          sudo yum update -y python-tripleoclient instack-undercloud && \
+          source ~/stackrc && \
+          openstack undercloud upgrade
   when: update is failed
+- name: Check OSP13 update
+  shell: sudo yum check-update
 - name: Reboot UC OSP13
   include: reboot.yml
   when: update is failed
