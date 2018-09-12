@@ -11,7 +11,7 @@
                   openstack stack list  -f value -c "Stack Name"
           register: cloudname
         - set_fact:
-              overcloud_rc: "/home/stack/{{cloudname.stdout}}"
+              overcloud_rc: "/home/stack/{{cloudname.stdout}}rc"
     
         - name: Register storage backend type
           shell: |
@@ -22,7 +22,7 @@
         - name: Register hypervisor name fqdn
           shell: |
               source {{ overcloud_rc }}
-              openstack hypervisor list -f value -c 'Hypervisor Hostname' | grep {{ inventory_hostname }}
+              openstack hypervisor list -f value -c 'Hypervisor Hostname' | grep {{ inventory_hostname | lower }}
           register: compute_fqdn
     
         - name: Register instances running on compute node
@@ -71,7 +71,7 @@
     - name: check this if this is pcmk-remote node
       become: true
       shell: |
-          pcs status 2>&1 | grep -w 'RemoteOnline:' | grep {{ inventory_hostname }}
+          pcs status 2>&1 | grep -w 'RemoteOnline:' | grep {{ inventory_hostname | lower }}
       register: pcmk_remote
       ignore_errors: true
       when: pcs_active|failed
@@ -138,7 +138,7 @@
       become: true
       shell: pcs status | grep -w 'RemoteOnline:'
       register: remote_online
-      until: "'{{ inventory_hostname }}' in remote_online.stdout"
+      until: "'{{ inventory_hostname | lower }}' in remote_online.stdout"
       retries: 6
       delay: 5
       when:
