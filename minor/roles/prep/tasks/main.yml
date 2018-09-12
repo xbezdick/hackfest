@@ -1,9 +1,13 @@
 ---
+- name: Set up OSP10 repos
+  shell: |
+          sudo yum -y  localinstall http://rhos-release.virt.bos.redhat.com/repos/rhos-release/rhos-release-latest.noarch.rpm
+          sudo rhos-release 10 rhel-7.5
 - name: Set up OSP10 and prepare for update
   shell: |
           sudo yum versionlock list || \
-          sudo yum -y  localinstall -y http://rhos-release.virt.bos.redhat.com/repos/rhos-release/rhos-release-latest.noarch.rpm && \
-          sudo rhos-release 10 rhel-7.5 && \
           sudo yum install -y yum-plugin-versionlock && \
-          sudo yum versionlock add systemd systemd-libs libgudev1 systemd-sysv rsyslog && \
+          sudo yum versionlock add systemd systemd-libs libgudev1 systemd-sysv rsyslog
+- name: Cache the packages on the nodes
+  shell: |
           sudo yum update --downloadonly || exit 0

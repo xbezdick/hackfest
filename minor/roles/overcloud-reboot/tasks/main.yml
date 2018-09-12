@@ -5,8 +5,13 @@
   block:
     # Evacuate compute node before reboot
     - block:
+        - name: Get stack name
+          shell: |
+                  source ~/stackrc
+                  openstack stack list  -f value -c "Stack Name"
+          register: cloudname
         - set_fact:
-              overcloud_rc: "/home/stack/overcloudrc"
+              overcloud_rc: "/home/stack/{{cloudname.stdout}}"
     
         - name: Register storage backend type
           shell: |
@@ -153,7 +158,7 @@
       become: true
       shell: pcs status | grep -w 'Online:'
       register: pcs_status
-      until: "'{{ inventory_hostname }}' in pcs_status.stdout"
+      until: "'{{ inventory_hostname | lower }}' in pcs_status.stdout"
       retries: 6
       delay: 10
       when:

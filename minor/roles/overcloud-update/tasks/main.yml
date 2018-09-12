@@ -7,10 +7,15 @@
   shell: |
           source ~/stackrc
           sh overcloud_update.sh 2>&1 | tee overcloud_update.log
+- name: Get stack from overcloud_update.sh
+  shell: |
+          source ~/stackrc
+          openstack stack list  -f value -c "Stack Name"
+  register: stack_name
 - name: Run overcloud update
   shell: |
           source ~/stackrc
-          yes '' | openstack overcloud update stack -i overcloud 2>&1 | tee -a overcloud_update.log
+          yes '' | openstack overcloud update stack -i "{{stack_name.stdout}}" 2>&1 | tee -a overcloud_update.log
 - name: Check successfull update
   shell: |
           source ~/stackrc
