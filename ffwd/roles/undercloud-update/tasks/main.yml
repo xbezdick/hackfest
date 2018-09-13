@@ -11,7 +11,7 @@
           sudo yum-config-manager --setopt=exclude=rhosp-director-images* --save && \
           sudo systemctl stop openstack-* neutron-* httpd && \
           sudo yum update -y instack-undercloud openstack-puppet-modules openstack-tripleo-common python-tripleoclient && \
-          source ~/stackrec && \
+          source ~/stackrc && \
           openstack undercloud upgrade
   when: update is failed
 - name: Check OSP11 update
@@ -43,7 +43,7 @@
 - name: Enable OSP13 repo
   shell: |
           sudo rhos-release -x
-          sudo rhos-release 13
+          sudo rhos-release 13 -P
 - name: Check OSP13 update
   shell: sudo yum check-update
   ignore_errors: true

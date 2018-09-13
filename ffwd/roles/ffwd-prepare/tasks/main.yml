@@ -135,7 +135,11 @@
 - name: Fix network config
   ignore_errors: true
   shell: |
-           grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' | awk '{print $3}' | xargs /usr/share/openstack-tripleo-heat-templates/tools/yaml-nic-config-2-script.py --yes --script-dir /usr/share/openstack-tripleo-heat-templates/network/scripts
+          grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' | awk '{print $3}' | xargs /usr/share/openstack-tripleo-heat-templates/tools/yaml-nic-config-2-script.py --yes --script-dir /usr/share/openstack-tripleo-heat-templates/network/scripts
+- name: Fix Controller Flavor
+  ignore_errors: true
+  shell: |
+          sed -i -e 's/OvercloudControlFlavor:/OvercloudControllerFlavor:/' $(grep Flavor -l `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'`)
 - name: Harakiri with role data
   shell: |
           ROLES_DATA=$(grep -- -r overcloud_ffwd.sh | awk '{print $2}')
@@ -167,29 +171,42 @@
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephMds"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephRbdMirror"] | unique) else . end)' |\
           python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+- name: Get stack name
+  shell: |
+          source ~/stackrc
+          openstack stack list  -f value -c "Stack Name"
+  register: stack_name
 - name: Run FFWD prepare command
   shell: |
           source ~/stackrc
           time sh overcloud_ffwd.sh 2>&1 | tee overcloud_ffwd_prepare.log
+- name: Verify prepare command
+  shell: |
+          source ~/stackrc
+          openstack stack list -c 'Stack Status' -f value | grep COMPLETE
 - name: Run FFWD run command
   shell: |
           source ~/stackrc
-          time openstack overcloud ffwd-upgrade run --yes 2>&1 | tee overcloud_ffwd_run.log
-- name: Run Upgrade on Controllers
+          time openstack overcloud ffwd-upgrade run --stack {{stack_name.stdout}} --yes 2>&1 | tee overcloud_ffwd_run.log
+- name: Verify FFWD run
+  shell: |
+          tail -n1 overcloud_ffwd_run.log | grep -i success
+- name: Run Upgrade on ROLES
   shell: |
           source ~/stackrc
           cat $(grep -- -r overcloud_ffwd.sh | awk '{print $2}') |  grep -- ' name:' |  cut -d':' -f2 | while read role; do
-            time openstack overcloud upgrade run --roles ${role} --skip-tags validation 2>&1 | tee overcloud_upgrade_${role}.log
+            time openstack overcloud upgrade run --stack {{stack_name.stdout}} --roles ${role} --skip-tags validation 2>&1 | tee overcloud_upgrade_${role}.log
+            tail -n1 overcloud_upgrade_${role}.log | grep -i success || exit 1
           done
-- name: Prepare Ceph Upgrade
-  shell: |
-          cp overcloud_deploy.sh overcloud_ceph.sh
-          sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
-          sed -i -e '/log-file/d' overcloud_ceph.sh
-          sed -i -e '/^$/d' overcloud_ceph.sh
-          echo '-e /home/stack/docker_registry.yaml \
-          -e /home/stack/ffu_repos.yaml \
-          -e FIXED CEPH
-          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
-          --ceph-ansible-playbook "/usr/share/ceph-ansible/infrastructure-playbooks/switch-from-non-containerized-to-containerized-ceph-daemons.yml,/usr/share/ceph-ansible/infrastructure-playbooks/rolling_update.yml"' >> overcloud_ffwd.sh
+#- name: Prepare Ceph Upgrade
+#  shell: |
+#          cp overcloud_deploy.sh overcloud_ceph.sh
+#          sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
+#          sed -i -e '/log-file/d' overcloud_ceph.sh
+#          sed -i -e '/^$/d' overcloud_ceph.sh
+#          echo '-e /home/stack/docker_registry.yaml \
+#          -e /home/stack/ffu_repos.yaml \
+#          -e FIXED CEPH
+#          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
+#          --ceph-ansible-playbook "/usr/share/ceph-ansible/infrastructure-playbooks/switch-from-non-containerized-to-containerized-ceph-daemons.yml,/usr/share/ceph-ansible/infrastructure-playbooks/rolling_update.yml"' >> overcloud_ffwd.sh
 
