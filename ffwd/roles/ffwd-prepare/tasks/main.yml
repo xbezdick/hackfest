@@ -11,9 +11,16 @@
   shell: |
           crudini --get undercloud.conf DEFAULT local_ip | cut -d '/' -f1
   register: local_ip
+- name: Get latest repo tag
+  shell: |
+          REPO="$(find /etc/yum.repos.d/ -iname 'rhos-release-??.*')"
+          REPO_URL="$(grep -B4 enabled=1 $REPO | grep -m1 puddle | sed -E 's/.*(http.*[0-9]-RHEL-.\/).*/\1/')"
+          curl -s -L -o /home/stack/overcloud_container_image_prepare.yaml $REPO_URL/latest/overcloud_container_image_prepare.yaml
+          grep id: /home/stack/overcloud_container_image_prepare.yaml | cut -d ' ' -f 4
+  register: repo_tag
 - name: Openstack overcloud container image prepare for local registry
   shell: |
-          openstack overcloud container image prepare     --namespace=docker-registry.engineering.redhat.com/rhosp13      --prefix=openstack-  --output-images-file=/home/stack/local-docker-images.yaml   -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml  --set ceph_namespace=registry.access.redhat.com/rhceph --set ceph_image=rhceph-3-rhel7 --tag=2018-07-13.1 --push-destination {{ local_ip.stdout }}:8787    --output-env-file ~/docker_registry.yaml  --set ceph_tag=latest
+          openstack overcloud container image prepare     --namespace=docker-registry.engineering.redhat.com/rhosp13      --prefix=openstack-  --output-images-file=/home/stack/local-docker-images.yaml   -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml  --set ceph_namespace=registry.access.redhat.com/rhceph --set ceph_image=rhceph-3-rhel7 --tag={{ repo_tag.stdout }} --push-destination {{ local_ip.stdout }}:8787    --output-env-file ~/docker_registry.yaml  --set ceph_tag=latest
 - name: Check if catalog present
   ignore_errors: true
   shell: |
@@ -140,7 +147,7 @@
   ignore_errors: true
   shell: |
           sed -i -e 's/OvercloudControlFlavor:/OvercloudControllerFlavor:/' $(grep Flavor -l `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'`)
-- name: Harakiri with role data
+- name: Harakiri with role data - note the newtorks placement is more or less hackish
   shell: |
           ROLES_DATA=$(grep -- -r overcloud_ffwd.sh | awk '{print $2}')
           mv ${ROLES_DATA} ${ROLES_DATA}_backup
@@ -170,6 +177,17 @@
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephMgr"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephMds"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .ServicesDefault |= (. += ["OS::TripleO::Services::CephRbdMirror"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephOSD"]) then .networks |= (. += ["StorageMgmt"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephOSD"]) then .networks |= (. += ["Storage"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .networks |= (. += ["StorageMgmt"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::CephMon"]) then .networks |= (. += ["Storage"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaCompute"]) then .networks |= (. += ["Storage"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaCompute"]) then .networks |= (. += ["Tenant"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaCompute"]) then .networks |= (. += ["InternalApi"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaApi"]) then .networks |= (. += ["Storage"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaApi"]) then .networks |= (. += ["Tenant"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaApi"]) then .networks |= (. += ["InternalApi"] | unique) else . end)' |\
+          jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NeutronApi"]) then .networks |= (. += ["External"] | unique) else . end)' |\
           python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
 - name: Get stack name
   shell: |

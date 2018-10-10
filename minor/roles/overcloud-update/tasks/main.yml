@@ -3,6 +3,7 @@
   shell: |
           cp overcloud_deploy.sh overcloud_update.sh && \
           sed -i -e 's/deploy \\/deploy --update-plan-only \\/' overcloud_update.sh
+          sed -i -e 's/timeout 100/timeout 333/' overcloud_update.sh
 - name: Create overcloud plan
   shell: |
           source ~/stackrc
