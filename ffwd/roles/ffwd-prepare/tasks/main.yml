@@ -130,7 +130,7 @@
 - name: Overcloud - Pre Upgrade Convert puppet-ceph to ceph-ansible parameters
   shell: |
           curl -O http://file.brq.redhat.com/~mcornea/tripleo/osp13/ceph/puppet-ceph-ansible-convert.sh
-          bash puppet-ceph-ansible-convert.sh `grep storage overcloud_deploy.sh | awk '{print $2}'`
+          bash puppet-ceph-ansible-convert.sh  $(grep 'ceph::profile::params::osds' -l `grep yaml overcloud_deploy.sh | awk '{print $2}' `)
 - name: Prepare ffwd command
   shell: |
           cp overcloud_deploy.sh overcloud_ffwd.sh
@@ -216,15 +216,18 @@
             time openstack overcloud upgrade run --stack {{stack_name.stdout}} --roles ${role} --skip-tags validation 2>&1 | tee overcloud_upgrade_${role}.log
             tail -n1 overcloud_upgrade_${role}.log | grep -i success || exit 1
           done
-#- name: Prepare Ceph Upgrade
-#  shell: |
-#          cp overcloud_deploy.sh overcloud_ceph.sh
-#          sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
-#          sed -i -e '/log-file/d' overcloud_ceph.sh
-#          sed -i -e '/^$/d' overcloud_ceph.sh
-#          echo '-e /home/stack/docker_registry.yaml \
-#          -e /home/stack/ffu_repos.yaml \
-#          -e FIXED CEPH
-#          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
-#          --ceph-ansible-playbook "/usr/share/ceph-ansible/infrastructure-playbooks/switch-from-non-containerized-to-containerized-ceph-daemons.yml,/usr/share/ceph-ansible/infrastructure-playbooks/rolling_update.yml"' >> overcloud_ffwd.sh
-
+- name: Prepare Ceph Upgrade
+  shell: |
+          cp overcloud_deploy.sh overcloud_ceph.sh
+          sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
+          sed -i -e '/log-file/d' overcloud_ceph.sh
+          sed -i -e '/^$/d' overcloud_ceph.sh
+          echo '-e /home/stack/docker_registry.yaml \
+          -e /home/stack/ffu_repos.yaml \
+          -e /home/stack/ceph-ansible-env.yaml \
+          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
+          --ceph-ansible-playbook "/usr/share/ceph-ansible/infrastructure-playbooks/switch-from-non-containerized-to-containerized-ceph-daemons.yml,/usr/share/ceph-ansible/infrastructure-playbooks/rolling_update.yml"' >> overcloud_ceph.sh
+- name: Run Ceph Upgrade
+  shell: |
+          source ~/stackrc
+          time sh overcloud_ceph.sh 2>&1 | tee overcloud_ceph_upgrade.log
