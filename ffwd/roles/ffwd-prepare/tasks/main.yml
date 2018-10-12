@@ -219,6 +219,7 @@
 - name: Prepare Ceph Upgrade
   shell: |
           cp overcloud_deploy.sh overcloud_ceph.sh
+          sudo yum -y install ceph-ansible
           sed -i -e 's/deploy/ceph-upgrade run/' overcloud_ceph.sh
           sed -i -e '/log-file/d' overcloud_ceph.sh
           sed -i -e '/^$/d' overcloud_ceph.sh
