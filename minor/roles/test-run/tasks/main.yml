@@ -1,0 +1,16 @@
+---
+- name:  Shaker
+  async: 10000
+  poll: 0
+  shell: |
+          . ~/.shaker/bin/activate
+          source ~/overcloudrc.v3
+          shaker --scenario openstack/full_l2 --external-net public --os-insecure --flavor-name shaker-flavor --image-name shaker-image --server-endpoint 192.168.24.1:9999 --book ~/shaker_report_$(date +%s)/ --os-region regionOne 2>&1 | tee shaker_run.log
+- name:  Tempest
+  async: 10000
+  poll: 0
+  shell: |
+          . ~/.tempest/bin/activate
+          source ~/overcloudrc.v3
+          cd tempest
+          tox -e smoke 2>&1 | tee tempest_run.log

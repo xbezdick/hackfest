@@ -8,6 +8,16 @@
   hosts: undercloud
   roles:
           - undercloud-update
+- name: Prepare test envs
+  gather_facts: false
+  hosts: undercloud
+  roles:
+          - test-prep
+- name: Run test
+  gather_facts: false
+  hosts: undercloud
+  roles:
+          - test-run
 - name: Minor update Overcloud
   gather_facts: false
   hosts: undercloud
