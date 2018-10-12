@@ -214,7 +214,7 @@
           source ~/stackrc
           cat $(grep -- -r overcloud_ffwd.sh | awk '{print $2}') |  grep -- ' name:' |  cut -d':' -f2 | while read role; do
             time openstack overcloud upgrade run --stack {{stack_name.stdout}} --roles ${role} --skip-tags validation 2>&1 | tee overcloud_upgrade_${role}.log
-            tail -n1 overcloud_upgrade_${role}.log | grep -i success || exit 1
+            tail -n3 overcloud_upgrade_${role}.log | grep -i success || exit 1
           done
 - name: Prepare Ceph Upgrade
   shell: |
@@ -231,3 +231,16 @@
   shell: |
           source ~/stackrc
           time sh overcloud_ceph.sh 2>&1 | tee overcloud_ceph_upgrade.log
+- name: Prepare ffwd converge command
+  shell: |
+          cp overcloud_deploy.sh overcloud_converge.sh
+          sed -i -e 's/deploy/ffwd-upgrade converge --yes/' overcloud_converge.sh
+          sed -i -e '/log-file/d' overcloud_converge.sh
+          sed -i -e '/^$/d' overcloud_converge.sh
+          echo '-e /home/stack/docker_registry.yaml \
+          -e /home/stack/ceph-ansible-env.yaml \
+          -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml' >> overcloud_converge.sh
+- name: Run Converge
+  shell: |
+          source ~/stackrc
+          time sh overcloud_converge.sh 2>&1 | tee overcloud_converge.log
