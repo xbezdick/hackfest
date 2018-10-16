@@ -76,6 +76,13 @@
       ignore_errors: true
       when: pcs_active|failed
     
+    - name: standby pcs cluster
+      become: true
+      command: "pcs cluster standby --wait 300"
+      when:
+          - pcs_active|failed
+          - pcmk_remote|failed
+
     - name: stop pcs cluster
       become: true
       command: "pcs cluster stop "
@@ -150,6 +157,15 @@
       become: true
       delay: 5
       command: pcs cluster start --wait=300
+      when:
+          - pcs_active|failed
+          - pcmk_remote|failed
+
+    # pacemaker managed services
+    - name: unstandby pcs cluster on a node
+      become: true
+      delay: 5
+      command: pcs cluster unstandby --wait=300
       when:
           - pcs_active|failed
           - pcmk_remote|failed
