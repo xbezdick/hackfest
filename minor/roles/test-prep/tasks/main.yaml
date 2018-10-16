@@ -9,6 +9,7 @@
           rm -rf ~/.shaker
           virtualenv ~/.shaker
           . ~/.shaker/bin/activate
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
           pip install setuptools -U
           pip install cffi -U
           pip install functools32
@@ -16,8 +17,8 @@
           wget -nc http://elk.browbeatproject.org:9090/~smalleni/shaker-image.qcow2 -O shaker-image.qcow2
           source ~/overcloudrc.v3
           sed -i -e 's/10.0.0.0/10.1.0.0/g' $(grep -l -R 10.0.0.0 .shaker/lib64/python2.7/site-packages/shaker/scenarios/)
-          openstack image create --public --file shaker-image.qcow2 --disk-format qcow2 shaker-image
-          openstack flavor create --ram 512 --disk 3 --vcpus 1 shaker-flavor
+          openstack image list | grep shaker-image || openstack image create --public --file shaker-image.qcow2 --disk-format qcow2 shaker-image
+          openstack flavor list | grep shaker-flavor || openstack flavor create --ram 512 --disk 3 --vcpus 1 shaker-flavor
           openstack quota set --cores -1 --instances -1 --volumes -1 \
                     --networks -1 --subnets -1 --ports -1 --routers -1 \
                     --ram -1 --secgroups -1 --fixed-ips -1 \
@@ -28,13 +29,18 @@
           rm -rf ~/python-tempestconf
           rm -rf ~/.tempest
           git clone https://github.com/openstack/tempest.git
+          cd tempest
+          git checkout 19.0.0
+          cd ..
           git clone git://git.openstack.org/openstack/python-tempestconf
           virtualenv ~/.tempest
           . ~/.tempest/bin/activate
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
           pip install -r tempest/requirements.txt
           pip install -r tempest/test-requirements.txt
+          pip install tox
           pip install tempest/
-          pip install python-tempestconf
+          pip install python-tempestconf/
           source ~/overcloudrc.v3
           discover-tempest-config --debug identity.uri $OS_AUTH_URL             identity.admin_password  $OS_PASSWORD       identity.region   regionOne   object-storage.operator_role swiftoperator --create  2>&1 | tee discover-tempest-config.log
-          sudo cp etc/tempest/tempest.conf /etc/tempest/tempest.conf
+          sudo cp etc/tempest.conf /etc/tempest/tempest.conf

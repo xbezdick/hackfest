@@ -5,12 +5,22 @@
   shell: |
           . ~/.shaker/bin/activate
           source ~/overcloudrc.v3
-          shaker --scenario openstack/full_l2 --external-net public --os-insecure --flavor-name shaker-flavor --image-name shaker-image --server-endpoint 192.168.24.1:9999 --book ~/shaker_report_$(date +%s)/ --os-region regionOne 2>&1 | tee shaker_run.log
+          sudo  iptables -I INPUT 1 -p tcp --dport 9999 -j ACCEPT
+          sudo  iptables -I INPUT 1 -p udp --dport 9999 -j ACCEPT
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
+          shaker --scenario openstack/full_l2 --matrix "{time: 1000}" --external-net public --os-insecure --flavor-name shaker-flavor --image-name shaker-image --server-endpoint 192.168.24.1:9999 --book ~/shaker_report_$(date +%s)/ --os-region regionOne 2>&1 | tee shaker_run.log
+- name: pause 5min
+  pause:
+          minutes: 5
 - name:  Tempest
   async: 10000
   poll: 0
   shell: |
           . ~/.tempest/bin/activate
           source ~/overcloudrc.v3
+          export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
           cd tempest
-          tox -e smoke 2>&1 | tee tempest_run.log
+          tox -e full 2>&1 | tee ~/tempest_run.log
+- name: pause 1min
+  pause:
+          minutes: 1
