@@ -78,7 +78,7 @@
     
     - name: standby pcs cluster
       become: true
-      command: "pcs cluster standby --wait 300"
+      command: "pcs cluster standby --wait=300"
       when:
           - pcs_active|failed
           - pcmk_remote|failed

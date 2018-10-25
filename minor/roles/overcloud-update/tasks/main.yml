@@ -1,7 +1,8 @@
 ---
 - name: Patch templates
+  ignore_errors: true
   shell: |
-          sudo patch -d /usr/share/openstack-tripleo-heat-templates/ -p1 << EOF
+          sudo patch -Nfs -d /usr/share/openstack-tripleo-heat-templates/ -p1 << EOF
           From 97d83d3477318cd0862106fe69c08e1f225d842c Mon Sep 17 00:00:00 2001
           From: Lukas Bezdicka <lbezdick@redhat.com>
           Date: Wed, 17 Oct 2018 00:10:26 +0200
