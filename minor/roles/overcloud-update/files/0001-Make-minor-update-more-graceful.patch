@@ -1,4 +1,4 @@
-From 97d83d3477318cd0862106fe69c08e1f225d842c Mon Sep 17 00:00:00 2001
+From 4d30ba1fa437ceb0bee252059be26980d80b6a72 Mon Sep 17 00:00:00 2001
 From: Lukas Bezdicka <lbezdick@redhat.com>
 Date: Wed, 17 Oct 2018 00:10:26 +0200
 Subject: [PATCH] Make minor update more graceful
@@ -9,14 +9,14 @@ Change-Id: I939464b93df2c33aa662a1598c8b4f478b798ec2
  1 file changed, 2 insertions(+)
 
 diff --git a/extraconfig/tasks/yum_update.sh b/extraconfig/tasks/yum_update.sh
-index 66d0242f7..de5974c43 100755
+index 66d0242f7..a87e0074b 100755
 --- a/extraconfig/tasks/yum_update.sh
 +++ b/extraconfig/tasks/yum_update.sh
 @@ -105,6 +105,7 @@ if [[ "$pacemaker_status" == "active" ]] ; then
          echo "Active node count is 1, stopping node with --force"
          pcs cluster stop --force
      else
-+        pcs cluster standby --wait
++        pcs node standby --wait=300
          pcs cluster stop
      fi
      update_network
@@ -24,9 +24,10 @@ index 66d0242f7..de5974c43 100755
  if [[ "$pacemaker_status" == "active" ]] ; then
      echo "Starting cluster node"
      pcs cluster start
-+    pcs cluster unstandby --wait
- 
++    pcs node unstandby --wait=300
+
      hostname=$(hostname -s)
      tstart=$(date +%s)
 -- 
 2.17.2
+
