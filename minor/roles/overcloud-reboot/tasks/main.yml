@@ -76,9 +76,9 @@
       ignore_errors: true
       when: pcs_active|failed
     
-    - name: standby pcs cluster
+    - name: standby pcs node
       become: true
-      command: "pcs cluster standby --wait=300"
+      command: "pcs node standby --wait=300"
       when:
           - pcs_active|failed
           - pcmk_remote|failed
@@ -165,7 +165,7 @@
     - name: unstandby pcs cluster on a node
       become: true
       delay: 5
-      command: pcs cluster unstandby --wait=300
+      command: pcs node unstandby --wait=300
       when:
           - pcs_active|failed
           - pcmk_remote|failed
