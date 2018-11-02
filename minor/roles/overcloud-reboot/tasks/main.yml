@@ -24,11 +24,16 @@
               source {{ overcloud_rc }}
               openstack hypervisor list -f value -c 'Hypervisor Hostname' | grep {{ inventory_hostname | lower }}
           register: compute_fqdn
+
+        - name: Disable compute service on the node
+          shell: |
+              source {{ overcloud_rc }}
+              openstack compute service set --disable --disable-reason reboot {{ compute_fqdn.stdout }} nova nova-compute
     
         - name: Register instances running on compute node
           shell: |
               source {{ overcloud_rc }}
-              openstack server list --host {{ compute_fqdn.stdout }} -f json | jq -r -c '.[] | select(.Status | contains("ACTIVE") or contains("PAUSED")) | .Name'
+              openstack server list --host {{ compute_fqdn.stdout }} --all-projects -f json | jq -r -c '.[] | select(.Status | contains("ACTIVE") or contains("PAUSED")) | .Name'
           register: compute_instances
     
         - name: Quiesce compute node
@@ -40,7 +45,7 @@
         - name: Wait for compute node to get quiesced
           shell: |
               source {{ overcloud_rc }}
-              openstack server list --host {{ compute_fqdn.stdout }} -f json | jq -r -c '[.[] | select(.Status | contains("ACTIVE") or contains("PAUSED") or contains("MIGRATING"))] | length'
+              openstack server list --host {{ compute_fqdn.stdout }} --all-projects -f json | jq -r -c '[.[] | select(.Status | contains("ACTIVE") or contains("PAUSED") or contains("MIGRATING"))] | length'
           register: compute_node_instances
           until: compute_node_instances.stdout.find("0") > -1
           retries: 30
@@ -85,7 +90,7 @@
 
     - name: stop pcs cluster
       become: true
-      command: "pcs cluster stop "
+      command: "pcs cluster stop --wait=300"
       when:
           - pcs_active|failed
           - pcmk_remote|failed
@@ -306,17 +311,25 @@
       when:
           - "'ceph' in group_names"
           - "groups['ceph']|difference(groups['unused']|default([]))|length >= 3"
-    
-    - name: migrate instance back to {{ compute_fqdn.stdout }}
-      shell: |
-        source {{ overcloud_rc }}
-        nova live-migration {{ item }} {{ compute_fqdn.stdout }}
-        openstack server show {{ item }}  -f json | jq -r -c '. | .["OS-EXT-SRV-ATTR:host"]'
-      register: instance_host
-      until: instance_host.stdout.find(compute_fqdn.stdout) > -1
-      retries: 30
-      delay: 5
-      with_items: "{{ compute_instances.stdout_lines }}"
+
+    - name: Renable the compute
+      block:
+        - name: migrate instance back to {{ compute_fqdn.stdout }}
+          shell: |
+            source {{ overcloud_rc }}
+            nova live-migration {{ item }} {{ compute_fqdn.stdout }}
+            openstack server show {{ item }}  -f json | jq -r -c '. | .["OS-EXT-SRV-ATTR:host"]'
+          register: instance_host
+          until: instance_host.stdout.find(compute_fqdn.stdout) > -1
+          retries: 30
+          delay: 5
+          with_items: "{{ compute_instances.stdout_lines }}"
+
+        - name: Enable compute service on the node
+          shell: |
+              source {{ overcloud_rc }}
+              openstack compute service set --enable {{ compute_fqdn.stdout }} nova nova-compute
+
       delegate_to: undercloud-0
       when:
         - "'compute' in group_names"
