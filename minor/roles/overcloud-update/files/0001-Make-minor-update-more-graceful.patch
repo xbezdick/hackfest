@@ -1,4 +1,4 @@
-From 1037099b002f8621b4bc7de014b84957eb624b46 Mon Sep 17 00:00:00 2001
+From 739162fbb69a2009417c3f4df3d91f45e6cc7c15 Mon Sep 17 00:00:00 2001
 From: Lukas Bezdicka <lbezdick@redhat.com>
 Date: Wed, 17 Oct 2018 00:10:26 +0200
 Subject: [PATCH] Standby the pacemaker on node before taking it down
@@ -7,35 +7,42 @@ During testing I found APIs become unavailable because of pcs
 cluster stop command. This can be avoided by gracefull standby.
 Other change here is adding --wait=300 to yum_update pcs commands.
 Turns out under heavy load this becomes racy and cluster is still
-running while we yum update.
+running while we yum update. Constraints...
 
 Change-Id: I939464b93df2c33aa662a1598c8b4f478b798ec2
 ---
- extraconfig/tasks/yum_update.sh | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ extraconfig/tasks/yum_update.sh | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/extraconfig/tasks/yum_update.sh b/extraconfig/tasks/yum_update.sh
-index 66d0242f7..338f136ff 100755
+index 66d0242f7..72efbc109 100755
 --- a/extraconfig/tasks/yum_update.sh
 +++ b/extraconfig/tasks/yum_update.sh
-@@ -105,7 +105,8 @@ if [[ "$pacemaker_status" == "active" ]] ; then
+@@ -105,7 +105,15 @@ if [[ "$pacemaker_status" == "active" ]] ; then
          echo "Active node count is 1, stopping node with --force"
          pcs cluster stop --force
      else
 -        pcs cluster stop
++        hostname=$(hostname -s)
++       resources=$(pcs resource show | grep IP | grep $hostname | awk '{print $1}')
++       for resource in ${resources};
++       do
++            pcs resource move $resource --wait=300
++           pcs constraint location remove cli-ban-$resource-on-$hostname
++        done
 +        pcs node standby --wait=300
 +        pcs cluster stop --wait=300
      fi
      update_network
  else
-@@ -131,7 +132,8 @@ echo "yum return code: $return_code"
- 
+@@ -131,7 +139,8 @@ echo "yum return code: $return_code"
+
  if [[ "$pacemaker_status" == "active" ]] ; then
      echo "Starting cluster node"
 -    pcs cluster start
 +    pcs cluster start --wait=300
 +    pcs node unstandby --wait=300
- 
+
      hostname=$(hostname -s)
      tstart=$(date +%s)
 -- 

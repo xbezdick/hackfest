@@ -28,7 +28,18 @@
         - name: Disable compute service on the node
           shell: |
               source {{ overcloud_rc }}
-              openstack compute service set --disable --disable-reason reboot {{ compute_fqdn.stdout }} nova nova-compute
+              openstack compute service set --disable --disable-reason reboot {{ compute_fqdn.stdout }} nova-compute
+
+        - name: Check if there are nodes in build state
+          shell: |
+              source {{ overcloud_rc }}
+              openstack server list --host {{ compute_fqdn.stdout }} --all-projects -f json | jq -r -c '.[] | select(.Status | contains("BUILD") | .Name'
+          register: compute_instances_build
+
+        - name: Sleep for one minute for each BUILD instance
+          pause:
+              min: 1
+          with_items: "{{ compute_instances_build.stdout_lines }}"
     
         - name: Register instances running on compute node
           shell: |
@@ -80,6 +91,17 @@
       register: pcmk_remote
       ignore_errors: true
       when: pcs_active|failed
+
+    - name: Migrate all IPs off
+      become: true
+      shell: |
+          hostname=$(hostname -s)
+          resources=$(pcs resource show | grep IP | grep $hostname | awk '{print $1}')
+          for resource in ${resources};
+          do
+            pcs resource move $resource --wait=300
+            pcs constraint location remove cli-ban-$resource-on-$hostname
+          done
     
     - name: standby pcs node
       become: true
@@ -328,7 +350,7 @@
         - name: Enable compute service on the node
           shell: |
               source {{ overcloud_rc }}
-              openstack compute service set --enable {{ compute_fqdn.stdout }} nova nova-compute
+              openstack compute service set --enable {{ compute_fqdn.stdout }} nova-compute
 
       delegate_to: undercloud-0
       when:
