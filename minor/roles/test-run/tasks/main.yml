@@ -8,7 +8,7 @@
           sudo  iptables -I INPUT 1 -p tcp --dport 9999 -j ACCEPT
           sudo  iptables -I INPUT 1 -p udp --dport 9999 -j ACCEPT
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
-          shaker --scenario openstack/full_l2 --matrix "{time: 1600}" --agent-join-timeout 900 \
+          shaker --scenario openstack/full_l2 --matrix "{time: 1900}" --agent-join-timeout 1200 \
                  --external-net public --os-insecure --flavor-name shaker-flavor --image-name shaker-image \
                  --server-endpoint "192.168.24.2:9999" \
                  --book ~/shaker_report_$(date +%s)/ --os-region regionOne 2>&1 | tee shaker_run.log

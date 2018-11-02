@@ -33,18 +33,18 @@
         - name: Check if there are nodes in build state
           shell: |
               source {{ overcloud_rc }}
-              openstack server list --host {{ compute_fqdn.stdout }} --all-projects -f json | jq -r -c '.[] | select(.Status | contains("BUILD") | .Name'
+              openstack server list --host {{ compute_fqdn.stdout }} -f json | jq -r -c '.[] | select(.Status | contains("BUILD")) | .Name'
           register: compute_instances_build
 
         - name: Sleep for one minute for each BUILD instance
           pause:
-              min: 1
+              minutes: 1
           with_items: "{{ compute_instances_build.stdout_lines }}"
     
         - name: Register instances running on compute node
           shell: |
               source {{ overcloud_rc }}
-              openstack server list --host {{ compute_fqdn.stdout }} --all-projects -f json | jq -r -c '.[] | select(.Status | contains("ACTIVE") or contains("PAUSED")) | .Name'
+              openstack server list --host {{ compute_fqdn.stdout }} -f json | jq -r -c '.[] | select(.Status | contains("ACTIVE") or contains("PAUSED")) | .Name'
           register: compute_instances
     
         - name: Quiesce compute node
