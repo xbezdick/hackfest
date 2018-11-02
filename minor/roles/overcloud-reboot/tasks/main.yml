@@ -102,6 +102,9 @@
             pcs resource move $resource --wait=300
             pcs constraint location remove cli-ban-$resource-on-$hostname
           done
+      when:
+          - pcs_active|failed
+          - pcmk_remote|failed
     
     - name: standby pcs node
       become: true
