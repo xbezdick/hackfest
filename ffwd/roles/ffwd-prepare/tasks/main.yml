@@ -1,7 +1,7 @@
 - name: Cleanup repos
   shell: sudo rhos-release -x
 - name: Enable OSP13 repo
-  shell: sudo rhos-release 13
+  shell: sudo rhos-release 13 -p GA
 - name: Set insecure registry for docker-registry.engineering.redhat.com
   shell: |
           sudo yum -y install crudini

@@ -43,7 +43,7 @@
 - name: Enable OSP13 repo
   shell: |
           sudo rhos-release -x
-          sudo rhos-release 13 -P
+          sudo rhos-release 13 -p GA
 - name: Check OSP13 update
   shell: sudo yum check-update
   ignore_errors: true
