@@ -106,12 +106,12 @@
           - pcs_active|failed
           - pcmk_remote|failed
     
-    - name: standby pcs node
-      become: true
-      command: "pcs node standby --wait=300"
-      when:
-          - pcs_active|failed
-          - pcmk_remote|failed
+#    - name: standby pcs node
+#      become: true
+#      command: "pcs node standby --wait=300"
+#      when:
+#          - pcs_active|failed
+#          - pcmk_remote|failed
 
     - name: stop pcs cluster
       become: true
@@ -192,13 +192,13 @@
           - pcmk_remote|failed
 
     # pacemaker managed services
-    - name: unstandby pcs cluster on a node
-      become: true
-      delay: 5
-      command: pcs node unstandby --wait=300
-      when:
-          - pcs_active|failed
-          - pcmk_remote|failed
+#    - name: unstandby pcs cluster on a node
+#      become: true
+#      delay: 5
+#      command: pcs node unstandby --wait=300
+#      when:
+#          - pcs_active|failed
+#          - pcmk_remote|failed
     
     - name: wait for pacemaker node to recover
       become: true
@@ -337,24 +337,25 @@
           - "'ceph' in group_names"
           - "groups['ceph']|difference(groups['unused']|default([]))|length >= 3"
 
-    - name: Renable the compute
-      block:
-        - name: migrate instance back to {{ compute_fqdn.stdout }}
-          shell: |
-            source {{ overcloud_rc }}
-            nova live-migration {{ item }} {{ compute_fqdn.stdout }}
-            openstack server show {{ item }}  -f json | jq -r -c '. | .["OS-EXT-SRV-ATTR:host"]'
-          register: instance_host
-          until: instance_host.stdout.find(compute_fqdn.stdout) > -1
-          retries: 30
-          delay: 5
-          with_items: "{{ compute_instances.stdout_lines }}"
+    - name: Enable compute service on the node
+      shell: |
+          source {{ overcloud_rc }}
+          openstack compute service set --enable {{ compute_fqdn.stdout }} nova-compute
+      delegate_to: "{{ groups['undercloud']|first }}"
+      when:
+        - "'compute' in group_names"
+        - groups.compute|difference(groups.unused|default([]))|length > 1
 
-        - name: Enable compute service on the node
-          shell: |
-              source {{ overcloud_rc }}
-              openstack compute service set --enable {{ compute_fqdn.stdout }} nova-compute
-
+    - name: migrate instance back to {{ compute_fqdn.stdout }}
+      shell: |
+        source {{ overcloud_rc }}
+        nova live-migration {{ item }} {{ compute_fqdn.stdout }}
+        openstack server show {{ item }}  -f json | jq -r -c '. | .["OS-EXT-SRV-ATTR:host"]'
+      register: instance_host
+      until: instance_host.stdout.find(compute_fqdn.stdout) > -1
+      retries: 30
+      delay: 5
+      with_items: "{{ compute_instances.stdout_lines }}"
       delegate_to: undercloud-0
       when:
         - "'compute' in group_names"
