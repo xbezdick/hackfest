@@ -4,6 +4,11 @@
   hosts: undercloud
   roles:
           - undercloud-update
+- name: Run shaker
+  gather_facts: false
+  hosts: undercloud
+  roles:
+          - test-run
 - name: Prepair undercloud
   gather_facts: false
   hosts: undercloud
