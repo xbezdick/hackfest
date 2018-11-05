@@ -24,7 +24,8 @@
 - name: Run overcloud update
   shell: |
           source ~/stackrc
-          yes '' | openstack overcloud update stack -i "{{stack_name.stdout}}" 2>&1 | tee -a overcloud_update.log
+          INPUT=$(openstack server list -f value -c Name | grep -v controller | tr '\n' '|' | sed 's/|$//')
+          printf "${INPUT}\n\n\n\n\n" | openstack overcloud update stack -i "{{stack_name.stdout}}" 2>&1 | tee -a overcloud_update.log
 - name: Check successfull update
   shell: |
           source ~/stackrc
