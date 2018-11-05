@@ -16,11 +16,16 @@
           REPO="$(find /etc/yum.repos.d/ -iname 'rhos-release-??.*')"
           REPO_URL="$(grep -B4 enabled=1 $REPO | grep -m1 puddle | sed -E 's/.*(http.*[0-9]-RHEL-.\/).*/\1/')"
           curl -s -L -o /home/stack/overcloud_container_image_prepare.yaml $REPO_URL/latest/overcloud_container_image_prepare.yaml
-          grep id: /home/stack/overcloud_container_image_prepare.yaml | cut -d ' ' -f 4
+          grep tag: /home/stack/overcloud_container_image_prepare.yaml | cut -d ' ' -f 4 | tr -d '\n'
   register: repo_tag
 - name: Openstack overcloud container image prepare for local registry
   shell: |
-          openstack overcloud container image prepare     --namespace=docker-registry.engineering.redhat.com/rhosp13      --prefix=openstack-  --output-images-file=/home/stack/local-docker-images.yaml   -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml  --set ceph_namespace=registry.access.redhat.com/rhceph --set ceph_image=rhceph-3-rhel7 --tag={{ repo_tag.stdout }} --push-destination {{ local_ip.stdout }}:8787    --output-env-file ~/docker_registry.yaml  --set ceph_tag=latest
+          openstack overcloud container image prepare     --namespace=docker-registry.engineering.redhat.com/rhosp13 \
+              --prefix=openstack-  --output-images-file=/home/stack/local-docker-images.yaml  \
+              -e /usr/share/openstack-tripleo-heat-templates/environments/ceph-ansible/ceph-ansible.yaml \
+              --set ceph_namespace=registry.access.redhat.com/rhceph --set ceph_image=rhceph-3-rhel7  \
+              --tag={{ repo_tag.stdout }} --push-destination {{ local_ip.stdout }}:8787  \
+              --output-env-file ~/docker_registry.yaml  --set ceph_tag=latest
 - name: Check if catalog present
   ignore_errors: true
   shell: |
@@ -128,6 +133,7 @@
   when: undercloud_ssl is succeeded
   shell: ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i overcloud_hosts undercloud-ca.yaml
 - name: Overcloud - Pre Upgrade Convert puppet-ceph to ceph-ansible parameters
+  ignore_errors: true
   shell: |
           curl -O http://file.brq.redhat.com/~mcornea/tripleo/osp13/ceph/puppet-ceph-ansible-convert.sh
           bash puppet-ceph-ansible-convert.sh  $(grep 'ceph::profile::params::osds' -l `grep yaml overcloud_deploy.sh | awk '{print $2}' `)
