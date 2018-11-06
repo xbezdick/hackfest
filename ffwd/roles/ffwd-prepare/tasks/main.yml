@@ -14,8 +14,8 @@
 - name: Get latest repo tag
   shell: |
           REPO="$(find /etc/yum.repos.d/ -iname 'rhos-release-??.*')"
-          REPO_URL="$(grep -B4 enabled=1 $REPO | grep -m1 puddle | sed -E 's/.*(http.*[0-9]-RHEL-.\/).*/\1/')"
-          curl -s -L -o /home/stack/overcloud_container_image_prepare.yaml $REPO_URL/latest/overcloud_container_image_prepare.yaml
+          REPO_URL="$(grep -B4 enabled=1 $REPO | grep -m1 puddle | sed -E 's/.*(http.*[0-9]-RHEL-.\/)([^\/]*\/).*/\1/\2')"
+          curl -s -L -o /home/stack/overcloud_container_image_prepare.yaml $REPO_URL/overcloud_container_image_prepare.yaml
           grep tag: /home/stack/overcloud_container_image_prepare.yaml | cut -d ' ' -f 4 | tr -d '\n'
   register: repo_tag
 - name: Openstack overcloud container image prepare for local registry

@@ -1,8 +1,10 @@
 ---
 - name: Get eth2 ip
   shell: |
-          ip -f inet -o addr show eth2 | cut -d\  -f 7 | cut -d/ -f 1
+          /usr/sbin/ip -f inet -o addr show eth2 | cut -d' '  -f 7 | cut -d/ -f 1
   register: eth2_ip
+- debug:
+   var: eth2_ip
 - name:  Shaker
   async: 10000
   poll: 0
@@ -16,6 +18,6 @@
                  --external-net public --os-insecure --flavor-name shaker-flavor --image-name shaker-image \
                  --server-endpoint {{ eth2_ip.stdout }}:9999 \
                  --book ~/shaker_report_$(date +%s)/ --os-region regionOne 2>&1 | tee shaker_run.log
-- name: pause 15 min
+- name: pause 5 min
   pause:
-          minutes: 15
+          minutes: 5
