@@ -1,4 +1,8 @@
 ---
+- name: Get eth2 ip
+  shell: |
+          /usr/sbin/ip -f inet -o addr show eth2 | cut -d' '  -f 7 | cut -d/ -f 1
+  register: eth2_ip
 - name:  Shaker
   async: 10000
   poll: 0
@@ -10,7 +14,7 @@
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
           shaker --scenario openstack/full_l2 --matrix "{time: 1900}" --agent-join-timeout 1200 \
                  --external-net public --os-insecure --flavor-name shaker-flavor --image-name shaker-image \
-                 --server-endpoint "192.168.24.2:9999" \
+                 --server-endpoint {{ eth2_ip.stdout }}:9999 \
                  --book ~/shaker_report_$(date +%s)/ --os-region regionOne 2>&1 | tee shaker_run.log
 - name: pause 10 min
   pause:

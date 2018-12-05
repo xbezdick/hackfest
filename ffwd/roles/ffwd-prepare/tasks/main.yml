@@ -1,7 +1,7 @@
 - name: Cleanup repos
   shell: sudo rhos-release -x
 - name: Enable OSP13 repo
-  shell: sudo rhos-release 13 -p GA
+  shell: sudo rhos-release 13 -p z3 rhel-7.6
 - name: Set insecure registry for docker-registry.engineering.redhat.com
   shell: |
           sudo yum -y install crudini
@@ -14,9 +14,9 @@
 - name: Get latest repo tag
   shell: |
           REPO="$(find /etc/yum.repos.d/ -iname 'rhos-release-??.*')"
-          REPO_URL="$(grep -B4 enabled=1 $REPO | grep -m1 puddle | sed -E 's/.*(http.*[0-9]-RHEL-.\/)([^\/]*\/).*/\1/\2')"
+          REPO_URL="$(grep -B4 enabled=1 $REPO | grep -m1 puddle | sed -E 's/.*(http.*[0-9]-RHEL-.\/)([^\/]*\/).*/\1\2/')"
           curl -s -L -o /home/stack/overcloud_container_image_prepare.yaml $REPO_URL/overcloud_container_image_prepare.yaml
-          grep tag: /home/stack/overcloud_container_image_prepare.yaml | cut -d ' ' -f 4 | tr -d '\n'
+          grep " tag: " /home/stack/overcloud_container_image_prepare.yaml | cut -d ' ' -f 4 | tr -d '\n'
   register: repo_tag
 - name: Openstack overcloud container image prepare for local registry
   shell: |

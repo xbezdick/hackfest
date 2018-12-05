@@ -1,22 +1,21 @@
-From 3ed66b1d0c0890990fcd6aa9fe5efeb716ecda54 Mon Sep 17 00:00:00 2001
+From 5de17bb72ee3f7e1d531ef6b97bcaed4da498e14 Mon Sep 17 00:00:00 2001
 From: Lukas Bezdicka <lbezdick@redhat.com>
 Date: Wed, 17 Oct 2018 00:10:26 +0200
 Subject: [PATCH] Migrate IPs off the Pacemaker node before update
 
-During testing I found APIs become unavailable because of pcs
+During testing we noticed APIs become unavailable because of pcs
 cluster stop command. This is caused by wrong kind of order
 constraint. Sadly fix would be delivered by puppet running after
 the fact so we move the IPs manually. Also in order to be less
-racy we always should use --wait.
+racy we should always use --wait option of pacemaker.
 
 Change-Id: I939464b93df2c33aa662a1598c8b4f478b798ec2
 ---
  extraconfig/tasks/yum_update.sh | 22 ++++++++++++++++++++--
  1 file changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/extraconfig/tasks/yum_update.sh
-b/extraconfig/tasks/yum_update.sh
-index 66d0242f7..07dfbf0a0 100755
+diff --git a/extraconfig/tasks/yum_update.sh b/extraconfig/tasks/yum_update.sh
+index 66d0242f7..77fb6f6d1 100755
 --- a/extraconfig/tasks/yum_update.sh
 +++ b/extraconfig/tasks/yum_update.sh
 @@ -105,7 +105,25 @@ if [[ "$pacemaker_status" == "active" ]] ; then
@@ -25,29 +24,21 @@ index 66d0242f7..07dfbf0a0 100755
      else
 -        pcs cluster stop
 +        CLUSTER_NODE=$(crm_node -n)
-+        # Retrieve all the VIPs which are currently hosted on the
-cluster node we're running on
-+        VIPS_TO_MOVE=$(crm_mon --as-xml | xmllint --xpath
-'//resource[@resource_agent = "ocf::heartbeat:IPaddr2" and @role =
-"Started" and @managed = "true" and ./node[@name =
-"'${CLUSTER_NODE}'"]]/@id' - | sed -e 's/id=//g' -e 's/"//g')
++        # Retrieve all the VIPs which are currently hosted on the cluster node we're running on
++        VIPS_TO_MOVE=$(crm_mon --as-xml | xmllint --xpath '//resource[@resource_agent = "ocf::heartbeat:IPaddr2" and @role = "Started" and @managed = "true" and ./node[@name = "'${CLUSTER_NODE}'"]]/@id' - | sed -e 's/id=//g' -e 's/"//g')
 +        for v in ${VIPS_TO_MOVE}; do
 +            echo "Moving VIP $v on another node"
 +            pcs resource move $v --wait=300
 +        done
-+        
-+        # Clear the internal location bans that were created by pcs to
-move the VIPs
++
++        # Clear the internal location bans that were created by pcs to move the VIPs
 +        for v in ${VIPS_TO_MOVE}; do
 +            echo "Clearing up move ban for VIP $v"
-+            ban_id=$(cibadmin --query | xmllint --xpath
-'string(//rsc_location[@rsc="'${v}'" and @node="'${CLUSTER_NODE}'" and
-@score="-INFINITY"]/@id)' -)
++            ban_id=$(cibadmin --query | xmllint --xpath 'string(//rsc_location[@rsc="'${v}'" and @node="'${CLUSTER_NODE}'" and @score="-INFINITY"]/@id)' -)
 +            if [ -n "$ban_id" ]; then
-+               pcs constraint remove ${ban_id}
++                pcs constraint remove ${ban_id}
 +            else
-+               echo "Could not bind location ban constraint for VIP $v"
-2>&1
++                echo "Could not bind location ban constraint for VIP $v" 2>&1
 +            fi
 +        done
 +        pcs cluster stop --wait=300
@@ -55,12 +46,12 @@ move the VIPs
      update_network
  else
 @@ -131,7 +149,7 @@ echo "yum return code: $return_code"
-
+ 
  if [[ "$pacemaker_status" == "active" ]] ; then
      echo "Starting cluster node"
 -    pcs cluster start
 +    pcs cluster start --wait=300
-
+ 
      hostname=$(hostname -s)
      tstart=$(date +%s)
 -- 

@@ -22,7 +22,7 @@
 - name: Enable OSP12 repo
   shell: |
           sudo rhos-release -x
-          sudo rhos-release 12
+          sudo rhos-release 12 rhel-7.6
 - name: Check OSP12 update
   shell: sudo yum check-update
   ignore_errors: true
@@ -43,7 +43,7 @@
 - name: Enable OSP13 repo
   shell: |
           sudo rhos-release -x
-          sudo rhos-release 13 -p GA
+          sudo rhos-release 13 -p z3 rhel-7.6
 - name: Check OSP13 update
   shell: sudo yum check-update
   ignore_errors: true
