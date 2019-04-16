@@ -1,7 +1,7 @@
 - name: Cleanup repos
   shell: sudo rhos-release -x
 - name: Enable OSP13 repo
-  shell: sudo rhos-release 13 -p z3 rhel-7.6
+  shell: sudo rhos-release 13
 - name: Set insecure registry for docker-registry.engineering.redhat.com
   shell: |
           sudo yum -y install crudini
@@ -195,6 +195,46 @@
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NovaApi"]) then .networks |= (. += ["InternalApi"] | unique) else . end)' |\
           jq 'map( if .ServicesDefault | contains (["OS::TripleO::Services::NeutronApi"]) then .networks |= (. += ["External"] | unique) else . end)' |\
           python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+- name: I really mean it
+  shell: |
+          cat $(grep -- -r overcloud_ffwd.sh | awk '{print $2}') |  grep -- ' name:' |  cut -d':' -f2 | while read role; do \
+            # Internal
+            ROLES_DATA=$(grep -- -r overcloud_ffwd.sh | awk '{print $2}')
+            grep get_param $(grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' |\
+            awk '{print $3}' | grep -i ${role}) | cut -d':' -f2 | grep InternalApiIpSubnet &&\
+            mv ${ROLES_DATA} ${ROLES_DATA}_backup_1 &&\
+            python -c 'import sys, yaml, simplejson as json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' < ${ROLES_DATA}_backup_1 |\
+            jq "map( if .name | contains (\"${role}\") then .networks |= (. += [\"InternalApi\"] | unique) else . end)" |\
+            python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+            # Storage
+            grep get_param $(grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' |\
+            awk '{print $3}' | grep -i ${role}) | cut -d':' -f2 | grep StorageIpSubnet &&\
+            mv ${ROLES_DATA} ${ROLES_DATA}_backup_1 &&\
+            python -c 'import sys, yaml, simplejson as json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' < ${ROLES_DATA}_backup_1 |\
+            jq "map( if .name | contains (\"${role}\") then .networks |= (. += [\"Storage\"] | unique) else . end)" |\
+            python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+            # StorageMgmt
+            grep get_param $(grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' |\
+            awk '{print $3}' | grep -i ${role}) | cut -d':' -f2 | grep StorageMgmtIpSubnet &&\
+            mv ${ROLES_DATA} ${ROLES_DATA}_backup_1 &&\
+            python -c 'import sys, yaml, simplejson as json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' < ${ROLES_DATA}_backup_1 |\
+            jq "map( if .name | contains (\"${role}\") then .networks |= (. += [\"StorageMgmt\"] | unique) else . end)" |\
+            python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+            # Tenant
+            grep get_param $(grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' |\
+            awk '{print $3}' | grep -i ${role}) | cut -d':' -f2 | grep TenantIpSubnet &&\
+            mv ${ROLES_DATA} ${ROLES_DATA}_backup_1 &&\
+            python -c 'import sys, yaml, simplejson as json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' < ${ROLES_DATA}_backup_1 |\
+            jq "map( if .name | contains (\"${role}\") then .networks |= (. += [\"Tenant\"] | unique) else . end)" |\
+            python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+            # External
+            grep get_param $(grep yaml `grep yaml  overcloud_ffwd.sh |  awk '{print $2}'` | grep '::Net::SoftwareConfig' |\
+            awk '{print $3}' | grep -i ${role}) | cut -d':' -f2 | grep ExternalIpSubnet &&\
+            mv ${ROLES_DATA} ${ROLES_DATA}_backup_1 &&\
+            python -c 'import sys, yaml, simplejson as json; json.dump(yaml.load(sys.stdin), sys.stdout, indent=4)' < ${ROLES_DATA}_backup_1 |\
+            jq "map( if .name | contains (\"${role}\") then .networks |= (. += [\"External\"] | unique) else . end)" |\
+            python -c 'import simplejson, sys, yaml; print yaml.dump(simplejson.loads(str(sys.stdin.read())), default_flow_style=False)' > ${ROLES_DATA}
+          done
 - name: Get stack name
   shell: |
           source ~/stackrc

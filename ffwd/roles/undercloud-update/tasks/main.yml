@@ -1,7 +1,7 @@
 - name: Enable OSP11 repo
   shell: |
           sudo rhos-release -x
-          sudo rhos-release 11
+          sudo rhos-release 11 rhel-7.6
 - name: Check OSP11 update
   shell: sudo yum check-update
   ignore_errors: true
@@ -16,6 +16,7 @@
   when: update is failed
 - name: Check OSP11 update
   shell: sudo yum check-update
+  ignore_errors: true
 - name: Reboot UC OSP11
   include: reboot.yml
   when: update is failed
@@ -37,13 +38,14 @@
   when: update is failed
 - name: Check OSP12 update
   shell: sudo yum check-update
+  ignore_errors: true
 - name: Reboot UC OSP12
   include: reboot.yml
   when: update is failed
 - name: Enable OSP13 repo
   shell: |
           sudo rhos-release -x
-          sudo rhos-release 13 -p z3 rhel-7.6
+          sudo rhos-release 13 rhel-7.6
 - name: Check OSP13 update
   shell: sudo yum check-update
   ignore_errors: true
