@@ -2,7 +2,8 @@
 - name: Get overcloudrc.v3
   shell: |
           source ~/stackrc
-          mistral run-action tripleo.deployment.overcloudrc '{"container": "overcloud"}' |  jq -r '.result| .["overcloudrc.v3"] ' > ~/overcloudrc.v3
+          STACK=$(openstack stack list  -f value -c "Stack Name")
+          mistral run-action tripleo.deployment.overcloudrc "{\"container\": \"${STACK}\"}" |  jq -r '.result| .["overcloudrc.v3"] ' > ~/overcloudrc.v3
 - name: Setup Shaker
   shell: |
           sudo yum -y install python-virtualenv gcc-c++ gcc cpp openssl-devel python-devel libffi-devel
@@ -14,7 +15,7 @@
           pip install cffi -U
           pip install functools32
           pip install pyshaker
-          wget -nc http://elk.browbeatproject.org:9090/~smalleni/shaker-image.qcow2 -O shaker-image.qcow2
+          curl -4 http://elk.browbeatproject.org:9090/~smalleni/shaker-image.qcow2 > shaker-image.qcow2
           source ~/overcloudrc.v3
           sed -i -e 's/10.0.0.0/10.1.0.0/g' $(grep -l -R 10.0.0.0 .shaker/lib64/python2.7/site-packages/shaker/scenarios/)
           openstack image list | grep shaker-image || openstack image create --public --file shaker-image.qcow2 --disk-format qcow2 shaker-image
@@ -30,9 +31,8 @@
           rm -rf ~/.tempest
           git clone https://github.com/openstack/tempest.git
           cd tempest
-          git checkout 19.0.0
           cd ..
-          git clone git://git.openstack.org/openstack/python-tempestconf
+          git clone https://opendev.org/openstack/python-tempestconf.git
           virtualenv ~/.tempest
           . ~/.tempest/bin/activate
           export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
